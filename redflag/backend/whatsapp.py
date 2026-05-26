@@ -1,27 +1,11 @@
 """
-WhatsApp Cloud API Integration for RedFlag.
-
-META WEBHOOK SETUP STEPS:
-1. Go to the Meta Developer Console (developers.facebook.com).
-2. Create or select a Business App with the "WhatsApp" product added.
-3. Under WhatsApp -> API Setup, get:
-   - Phone Number ID
-   - WhatsApp Access Token (Temporary or Permanent System User Token)
-4. Under WhatsApp -> Configuration:
-   - Set Callback URL to: https://<your-ngrok-subdomain>.ngrok-free.app/whatsapp/webhook
-   - Set Verify Token to: the value of WHATSAPP_VERIFY_TOKEN in your .env file
-   - Click "Verify and save"
-5. In "Webhook fields", subscribe to the "messages" field.
-
-LOCAL TESTING WITH NGROK:
-1. Start the FastAPI backend locally:
-   uvicorn main:app --reload --port 8000
-2. In a separate terminal, start ngrok:
-   ngrok http 8000
-3. Copy the forwarding HTTPS URL from ngrok output (e.g., https://1234-56-78.ngrok-free.app).
-4. Update the Meta Webhook Callback URL to:
-   https://1234-56-78.ngrok-free.app/whatsapp/webhook
-5. Send messages to your test WhatsApp number!
+WAPPFLY SANDBOX SETUP
+1. Sign up at https://app.wappfly.com
+2. Click "Connect Device" and scan the QR code with your personal WhatsApp
+3. Go to API Keys → generate a key → add it to .env as WAPPFLY_API_KEY
+4. Go to Webhooks → set URL to: https://<your-ngrok-url>/whatsapp/webhook
+5. Run ngrok locally: ngrok http 8000
+6. Test by messaging the WhatsApp number you scanned from
 """
 
 import os
@@ -29,7 +13,7 @@ import re
 import json
 import tempfile
 import httpx
-from fastapi import APIRouter, Request, Query, Response, HTTPException
+from fastapi import APIRouter, Request, HTTPException
 from fastapi.responses import JSONResponse
 
 router = APIRouter()
@@ -54,27 +38,20 @@ def get_user_session(wa_id: str) -> dict:
 
 
 async def send_whatsapp_message(to: str, text: str) -> None:
-    """Sends a text message to a user via the WhatsApp Cloud API."""
-    access_token = os.getenv("WHATSAPP_ACCESS_TOKEN")
-    phone_number_id = os.getenv("WHATSAPP_PHONE_NUMBER_ID")
-    
-    if not access_token or not phone_number_id:
-        print("Warning: WHATSAPP_ACCESS_TOKEN or WHATSAPP_PHONE_NUMBER_ID is not configured in .env")
+    """Sends a text message to a user via the Wappfly API."""
+    api_key = os.getenv("WAPPFLY_API_KEY")
+    if not api_key:
+        print("Warning: WAPPFLY_API_KEY is not configured in .env")
         return
         
-    url = f"https://graph.facebook.com/v18.0/{phone_number_id}/messages"
+    url = "https://app.wappfly.com/api/send-message"
     headers = {
-        "Authorization": f"Bearer {access_token}",
+        "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json"
     }
     body = {
-        "messaging_product": "whatsapp",
-        "recipient_type": "individual",
-        "to": to,
-        "type": "text",
-        "text": {
-            "body": text
-        }
+        "phone": to,
+        "message": text
     }
     
     async with httpx.AsyncClient() as client:
@@ -82,45 +59,23 @@ async def send_whatsapp_message(to: str, text: str) -> None:
             response = await client.post(url, json=body, headers=headers)
             response_json = response.json()
             if response.status_code != 200:
-                print(f"Error sending WhatsApp message: {response_json}")
+                print(f"Error sending WhatsApp message via Wappfly: {response_json}")
             else:
-                print(f"WhatsApp message sent successfully to {to}")
+                print(f"WhatsApp message sent successfully via Wappfly to {to}")
         except Exception as e:
-            print(f"Exception while sending WhatsApp message: {str(e)}")
+            print(f"Exception while sending WhatsApp message via Wappfly: {str(e)}")
 
 
-async def download_whatsapp_media(media_id: str) -> str:
+async def download_whatsapp_media(download_url: str) -> str:
     """
-    Downloads media from the WhatsApp Cloud API.
-    1. Fetches the media download URL from Meta's Graph API.
-    2. Downloads the raw media bytes using the URL.
-    3. Saves the bytes to a NamedTemporaryFile with a .pdf suffix and returns its path.
+    Downloads media from Wappfly's direct download URL.
+    Saves the bytes to a NamedTemporaryFile with a .pdf suffix and returns its path.
     """
-    access_token = os.getenv("WHATSAPP_ACCESS_TOKEN")
-    if not access_token:
-        raise Exception("WHATSAPP_ACCESS_TOKEN is not configured in .env")
-        
-    headers = {
-        "Authorization": f"Bearer {access_token}"
-    }
-    
     async with httpx.AsyncClient() as client:
-        # Step 1: Get media URL
-        url = f"https://graph.facebook.com/v18.0/{media_id}"
-        response = await client.get(url, headers=headers)
+        response = await client.get(download_url)
         response.raise_for_status()
-        media_data = response.json()
-        download_url = media_data.get("url")
+        file_bytes = response.content
         
-        if not download_url:
-            raise Exception("Failed to retrieve download URL from WhatsApp media API")
-            
-        # Step 2: Download raw media bytes
-        media_response = await client.get(download_url, headers=headers)
-        media_response.raise_for_status()
-        file_bytes = media_response.content
-        
-    # Step 3: Save to NamedTemporaryFile (delete=False so the calling function can read/use the file)
     with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
         tmp.write(file_bytes)
         tmp_path = tmp.name
@@ -175,71 +130,37 @@ def format_analysis_for_whatsapp(result: dict) -> str:
     return msg
 
 
-@router.get("/whatsapp/webhook")
-async def verify_webhook(
-    mode: str = Query(None, alias="hub.mode"),
-    token: str = Query(None, alias="hub.verify_token"),
-    challenge: str = Query(None, alias="hub.challenge")
-):
-    """
-    Handles WhatsApp Webhook Verification (GET).
-    Compares the challenge token sent by Meta against the local WHATSAPP_VERIFY_TOKEN.
-    """
-    verify_token = os.getenv("WHATSAPP_VERIFY_TOKEN")
-    
-    if mode == "subscribe" and token == verify_token:
-        print("Webhook successfully verified with Meta!")
-        return Response(content=challenge, media_type="text/plain")
-        
-    print(f"Webhook verification failed. Expected '{verify_token}', got '{token}'")
-    raise HTTPException(status_code=403, detail="Verification token mismatch or invalid mode")
-
-
 @router.post("/whatsapp/webhook")
 async def handle_webhook(request: Request):
     """
-    Handles incoming webhook payloads from WhatsApp Cloud API (POST).
-    Always returns HTTP 200 immediately to prevent Meta from retrying on error.
+    Handles incoming webhook payloads from Wappfly (POST).
+    Always returns HTTP 200 immediately to prevent Wappfly from retrying on error.
     """
     try:
         payload = await request.json()
         
-        # Extract first message details safely
-        entry = payload.get("entry", [])
-        if not entry:
-            return JSONResponse(content={"status": "no entry in payload"}, status_code=200)
-            
-        changes = entry[0].get("changes", [])
-        if not changes:
-            return JSONResponse(content={"status": "no changes in payload"}, status_code=200)
-            
-        value = changes[0].get("value", {})
-        messages = value.get("messages", [])
+        # Log payload for debugging
+        print(f"Received Wappfly webhook payload: {json.dumps(payload)}")
         
-        # Meta sends status updates (sent, delivered, read) to webhooks. Ignore them.
-        if not messages:
-            return JSONResponse(content={"status": "status update received"}, status_code=200)
+        event = payload.get("event")
+        if event != "message":
+            return JSONResponse(content={"status": "ignored non-message event"}, status_code=200)
             
-        message = messages[0]
-        wa_id = message.get("from")
+        data = payload.get("data", {})
+        wa_id = data.get("from")
         
         if not wa_id:
-            return JSONResponse(content={"status": "no from id found"}, status_code=200)
+            return JSONResponse(content={"status": "no sender phone number found"}, status_code=200)
             
         # Retrieve or initialize session state
         session = get_user_session(wa_id)
+        sender_name = "User"  # Wappfly payload doesn't guarantee profile name, default to User
         
-        # Extract sender's name if present
-        contacts = value.get("contacts", [])
-        sender_name = "User"
-        if contacts:
-            sender_name = contacts[0].get("profile", {}).get("name", "User")
-            
-        message_type = message.get("type")
+        message_type = data.get("type")
         
         # Handle Text Messages
         if message_type == "text":
-            body = message.get("text", {}).get("body", "").strip()
+            body = data.get("text", {}).get("body", "").strip()
             body_lower = body.lower()
             
             # 1. Greetings checking
@@ -317,18 +238,21 @@ async def handle_webhook(request: Request):
                     
         # Handle PDF Document Messages
         elif message_type == "document":
-            doc = message.get("document", {})
-            mime_type = doc.get("mime_type", "")
+            doc = data.get("document", {})
+            mimetype = doc.get("mimetype", "")
             
-            if mime_type == "application/pdf":
+            if mimetype == "application/pdf":
                 session["state"] = "PROCESSING"
                 await send_whatsapp_message(wa_id, "📥 PDF received. Analyzing your rental agreement for compliance, please wait...")
                 
                 tmp_path = None
                 try:
-                    # 1. Download PDF
-                    media_id = doc.get("id")
-                    tmp_path = await download_whatsapp_media(media_id)
+                    # 1. Download PDF from Wappfly direct URL
+                    download_url = doc.get("url")
+                    if not download_url:
+                        raise Exception("Wappfly document URL is empty")
+                        
+                    tmp_path = await download_whatsapp_media(download_url)
                     
                     # 2. Extract Text & Run AI compliance audit
                     # Import locally to prevent circular dependency
@@ -383,7 +307,7 @@ async def handle_webhook(request: Request):
             )
             
     except Exception as e:
-        # Wrap everything in try/except to guarantee we always return 200 to WhatsApp
-        print(f"Unhandled error in WhatsApp webhook: {str(e)}")
+        # Wrap everything in try/except to guarantee we always return 200 to Wappfly
+        print(f"Unhandled error in Wappfly webhook: {str(e)}")
         
     return JSONResponse(content={"status": "success"}, status_code=200)

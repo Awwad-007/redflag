@@ -7,9 +7,7 @@ from unittest.mock import AsyncMock, patch
 sys.path.insert(0, r"c:\Users\Afzan Khan\Documents\redflag\redflag\backend")
 
 # Set dummy env vars for test run
-os.environ["WHATSAPP_VERIFY_TOKEN"] = "test_token_123"
-os.environ["WHATSAPP_ACCESS_TOKEN"] = "fake_access_token"
-os.environ["WHATSAPP_PHONE_NUMBER_ID"] = "fake_phone_id"
+os.environ["WAPPFLY_API_KEY"] = "fake_wappfly_key"
 
 from fastapi.testclient import TestClient
 from main import app
@@ -18,57 +16,15 @@ class TestWhatsAppEndpoints(unittest.TestCase):
     def setUp(self):
         self.client = TestClient(app)
 
-    def test_verify_webhook_success(self):
-        response = self.client.get(
-            "/whatsapp/webhook",
-            params={
-                "hub.mode": "subscribe",
-                "hub.verify_token": "test_token_123",
-                "hub.challenge": "challenge_accepted"
-            }
-        )
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.text, "challenge_accepted")
-
-    def test_verify_webhook_failure(self):
-        response = self.client.get(
-            "/whatsapp/webhook",
-            params={
-                "hub.mode": "subscribe",
-                "hub.verify_token": "wrong_token",
-                "hub.challenge": "challenge_accepted"
-            }
-        )
-        self.assertEqual(response.status_code, 403)
-
     @patch("whatsapp.send_whatsapp_message", new_callable=AsyncMock)
     def test_post_webhook_greeting(self, mock_send_msg):
         payload = {
-            "object": "whatsapp_business_account",
-            "entry": [
-                {
-                    "id": "12345",
-                    "changes": [
-                        {
-                            "value": {
-                                "messaging_product": "whatsapp",
-                                "metadata": {"display_phone_number": "1", "phone_number_id": "1"},
-                                "contacts": [{"profile": {"name": "Alice"}, "wa_id": "919999999999"}],
-                                "messages": [
-                                    {
-                                        "from": "919999999999",
-                                        "id": "wamid.123",
-                                        "timestamp": "123456789",
-                                        "text": {"body": "hello"},
-                                        "type": "text"
-                                    }
-                                ]
-                            },
-                            "field": "messages"
-                        }
-                    ]
-                }
-            ]
+            "event": "message",
+            "data": {
+                "from": "919999999999",
+                "type": "text",
+                "text": {"body": "hello"}
+            }
         }
         
         response = self.client.post("/whatsapp/webhook", json=payload)
@@ -82,58 +38,29 @@ class TestWhatsAppEndpoints(unittest.TestCase):
         self.assertIn("Welcome to *RedFlag*", args[1])
 
     @patch("whatsapp.send_whatsapp_message", new_callable=AsyncMock)
-    def test_post_webhook_status_update(self, mock_send_msg):
-        # A status payload (e.g. read/delivered receipt) contains no messages
+    def test_post_webhook_ignored_event(self, mock_send_msg):
+        # Wappfly sends status or device connected events. We should ignore them.
         payload = {
-            "object": "whatsapp_business_account",
-            "entry": [
-                {
-                    "id": "12345",
-                    "changes": [
-                        {
-                            "value": {
-                                "messaging_product": "whatsapp",
-                                "statuses": [{"id": "wamid.123", "status": "read"}]
-                            },
-                            "field": "messages"
-                        }
-                    ]
-                }
-            ]
+            "event": "device_status",
+            "data": {
+                "status": "connected"
+            }
         }
         
         response = self.client.post("/whatsapp/webhook", json=payload)
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json(), {"status": "status update received"})
+        self.assertEqual(response.json(), {"status": "ignored non-message event"})
         mock_send_msg.assert_not_called()
 
     @patch("whatsapp.send_whatsapp_message", new_callable=AsyncMock)
     def test_post_webhook_fallback(self, mock_send_msg):
         payload = {
-            "object": "whatsapp_business_account",
-            "entry": [
-                {
-                    "id": "12345",
-                    "changes": [
-                        {
-                            "value": {
-                                "messaging_product": "whatsapp",
-                                "contacts": [{"profile": {"name": "Alice"}, "wa_id": "919999999999"}],
-                                "messages": [
-                                    {
-                                        "from": "919999999999",
-                                        "id": "wamid.123",
-                                        "timestamp": "123456789",
-                                        "text": {"body": "some random text"},
-                                        "type": "text"
-                                    }
-                                ]
-                            },
-                            "field": "messages"
-                        }
-                    ]
-                }
-            ]
+            "event": "message",
+            "data": {
+                "from": "919999999999",
+                "type": "text",
+                "text": {"body": "some random text"}
+            }
         }
         
         response = self.client.post("/whatsapp/webhook", json=payload)
@@ -184,34 +111,16 @@ class TestWhatsAppEndpoints(unittest.TestCase):
         }
         
         payload = {
-            "object": "whatsapp_business_account",
-            "entry": [
-                {
-                    "id": "12345",
-                    "changes": [
-                        {
-                            "value": {
-                                "messaging_product": "whatsapp",
-                                "contacts": [{"profile": {"name": "Alice"}, "wa_id": "919999999999"}],
-                                "messages": [
-                                    {
-                                        "from": "919999999999",
-                                        "id": "wamid.doc123",
-                                        "timestamp": "123456789",
-                                        "document": {
-                                            "filename": "lease.pdf",
-                                            "mime_type": "application/pdf",
-                                            "id": "media_id_123"
-                                        },
-                                        "type": "document"
-                                    }
-                                ]
-                            },
-                            "field": "messages"
-                        }
-                    ]
+            "event": "message",
+            "data": {
+                "from": "919999999999",
+                "type": "document",
+                "document": {
+                    "url": "https://example.com/agreement.pdf",
+                    "filename": "lease.pdf",
+                    "mimetype": "application/pdf"
                 }
-            ]
+            }
         }
         
         response = self.client.post("/whatsapp/webhook", json=payload)
@@ -264,30 +173,12 @@ class TestWhatsAppEndpoints(unittest.TestCase):
         
         # Now query details of issue 1
         payload = {
-            "object": "whatsapp_business_account",
-            "entry": [
-                {
-                    "id": "12345",
-                    "changes": [
-                        {
-                            "value": {
-                                "messaging_product": "whatsapp",
-                                "contacts": [{"profile": {"name": "Alice"}, "wa_id": "919999999999"}],
-                                "messages": [
-                                    {
-                                        "from": "919999999999",
-                                        "id": "wamid.query1",
-                                        "timestamp": "123456789",
-                                        "text": {"body": "tell me about issue 1"},
-                                        "type": "text"
-                                    }
-                                ]
-                            },
-                            "field": "messages"
-                        }
-                    ]
-                }
-            ]
+            "event": "message",
+            "data": {
+                "from": "919999999999",
+                "type": "text",
+                "text": {"body": "tell me about issue 1"}
+            }
         }
         
         response = self.client.post("/whatsapp/webhook", json=payload)
