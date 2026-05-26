@@ -1,0 +1,103 @@
+.hero {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding-bottom: 8px;
+}
+
+.eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.eyebrowText {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--crimson);
+  background: var(--crimson-glow);
+  border: 1px solid var(--crimson-border);
+  padding: 4px 12px;
+  border-radius: 100px;
+  animation: fadeIn 0.4s ease;
+}
+
+.headline {
+  font-family: var(--font-display);
+  font-size: clamp(2.2rem, 5vw, 3.2rem);
+  font-weight: 400;
+  color: var(--ink);
+  line-height: 1.18;
+  letter-spacing: -0.03em;
+  animation: fadeUp 0.5s ease 0.1s both;
+}
+
+.headline em {
+  font-style: italic;
+  color: var(--crimson);
+}
+
+.subline {
+  font-size: 1.05rem;
+  color: var(--ink-3);
+  line-height: 1.65;
+  max-width: 540px;
+  font-weight: 400;
+  animation: fadeUp 0.5s ease 0.2s both;
+}
+
+.featureGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  animation: fadeUp 0.5s ease 0.3s both;
+}
+
+.featureCard {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  background: white;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  animation: fadeUp 0.4s ease both;
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.featureCard:hover {
+  box-shadow: var(--shadow-sm);
+  border-color: var(--border);
+}
+
+.featureIcon {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--crimson);
+  flex-shrink: 0;
+}
+
+.featureTitle {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 2px;
+}
+
+.featureDesc {
+  font-size: 0.78rem;
+  color: var(--ink-3);
+  line-height: 1.5;
+}
+
+@media (max-width: 640px) {
+  .featureGrid { grid-template-columns: 1fr; }
+  .headline { font-size: 2rem; }
+}
