@@ -1,0 +1,180 @@
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.dropzone {
+  position: relative;
+  border: 1.5px dashed var(--border);
+  border-radius: var(--radius-xl);
+  background: var(--surface-2);
+  padding: 64px 40px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-height: 280px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dropzone:hover {
+  border-color: var(--crimson);
+  background: rgba(192, 57, 43, 0.03);
+}
+
+.dropzone.active {
+  border-color: var(--crimson);
+  border-style: solid;
+  background: rgba(192, 57, 43, 0.05);
+  transform: scale(1.005);
+}
+
+.dropzone.loading {
+  cursor: not-allowed;
+  border-style: solid;
+  border-color: var(--border);
+}
+
+/* Corner decorations */
+.cornerTL, .cornerTR, .cornerBL, .cornerBR {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.dropzone:hover .cornerTL,
+.dropzone:hover .cornerTR,
+.dropzone:hover .cornerBL,
+.dropzone:hover .cornerBR,
+.dropzone.active .cornerTL,
+.dropzone.active .cornerTR,
+.dropzone.active .cornerBL,
+.dropzone.active .cornerBR {
+  opacity: 1;
+}
+
+.cornerTL { top: 12px; left: 12px; border-top: 2px solid var(--crimson); border-left: 2px solid var(--crimson); }
+.cornerTR { top: 12px; right: 12px; border-top: 2px solid var(--crimson); border-right: 2px solid var(--crimson); }
+.cornerBL { bottom: 12px; left: 12px; border-bottom: 2px solid var(--crimson); border-left: 2px solid var(--crimson); }
+.cornerBR { bottom: 12px; right: 12px; border-bottom: 2px solid var(--crimson); border-right: 2px solid var(--crimson); }
+
+.content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  text-align: center;
+  max-width: 400px;
+}
+
+.iconWrap {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: var(--surface-3);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-3);
+  transition: all 0.2s ease;
+}
+
+.dropzone:hover .iconWrap,
+.dropzone.active .iconWrap {
+  background: var(--crimson-glow);
+  border-color: var(--crimson-border);
+  color: var(--crimson);
+}
+
+.icon {
+  transition: transform 0.2s ease;
+}
+
+.dropzone:hover .icon {
+  transform: translateY(-2px);
+}
+
+.textGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.primary {
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.secondary {
+  font-size: 0.9rem;
+  color: var(--ink-3);
+  font-weight: 400;
+}
+
+.link {
+  color: var(--crimson);
+  text-decoration: underline;
+  text-decoration-color: var(--crimson-border);
+}
+
+.hint {
+  font-size: 0.75rem;
+  color: var(--ink-3);
+  opacity: 0.7;
+}
+
+/* Loading state */
+.loadingState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--border);
+  border-top-color: var(--crimson);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.loadingText {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.loadingSubtext {
+  font-size: 0.82rem;
+  color: var(--ink-3);
+  max-width: 300px;
+  text-align: center;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+/* Privacy note */
+.privacyNote {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 0.75rem;
+  color: var(--ink-3);
+  opacity: 0.75;
+  padding: 0 4px;
+}
+
+.privacyNote svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: var(--success);
+  opacity: 1;
+}
